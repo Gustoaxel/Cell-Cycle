@@ -2,6 +2,10 @@
 """
 Copyright   I3S CNRS UCA 
 
+This is an implementation of : Non-invasive live cell cycle monitoring using a supervised autoencoder
+Written by : Philippe Pognonec, Axel Gustovic, Zied Djabari, Thierry Pourcher and Michel Barlaud 
+
+Options : 
 Select train dataset : line 197 
 Select test dataset : line 198 
 Select number of control cells in the training set : line 201
@@ -169,9 +173,9 @@ if __name__=='__main__':
     # Set device (Gpu or cpu)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     
-    nfold = 1
-    N_EPOCHS = 1
-    N_EPOCHS_MASKGRAD = 1     # number of epochs for trainning masked graident
+    nfold = 4
+    N_EPOCHS = 10
+    N_EPOCHS_MASKGRAD = 10      # number of epochs for trainning masked graident
     # learning rate 
     LR = 0.0005      
     BATCH_SIZE=8
@@ -181,10 +185,6 @@ if __name__=='__main__':
     
     SPLIT_RATE = 0.25
     # Loss functions for reconstruction
-#    criterion_reconstruction = nn.KLDivLoss( reduction='sum' )      # Kullback-Leibler Divergence loss function
-#    criterion_reconstruction = CMDS_Loss(  reduction='sum'  )     # CMDS and Squared-output regularizer
-#    criterion_reconstruction = nn.MSELoss(  reduction='sum'  ) # MSELoss
-#    criterion_reconstruction = nn.L1Loss(  reduction='sum'  )  # L1Loss
     criterion_reconstruction = nn.SmoothL1Loss(  reduction='sum'  ) # SmoothL1Loss
     
     # Loss functions for classification
@@ -199,12 +199,11 @@ if __name__=='__main__':
     
     
     Nc = 1000
-    Nt = 3000
+    Nt = 5000
     
     
     # Choose Net 
 #    net_name = 'LeNet'
-#    net_name = 'Fair'
     net_name = 'netBio'
     n_hidden = 64  # nombre de neurone sur la couche du netBio
 
@@ -237,10 +236,6 @@ if __name__=='__main__':
     else:
 #        TYPE_PROJ = ft.proj_l1ball         # projection l1
         TYPE_PROJ = ft.proj_l11ball        #original projection l11 (les colonnes a zero)
-#        TYPE_PROJ = ft.proj_l11ball_line   #projection l11 (les lignesa zero)
-#        TYPE_PROJ = ft.proj_nuclear         # projection Nuclear
-#        TYPE_PROJ = ft.proj_l21ball        # projection l21
-#        TYPE_PROJ = ft.proj_l12ball
         TYPE_PROJ_NAME = TYPE_PROJ.__name__
         
     #  Parameters for gradient masqué  
@@ -292,8 +287,6 @@ if __name__=='__main__':
         # run AutoEncoder
         if net_name == 'LeNet':
                 net = ft.LeNet_300_100(n_inputs=feature_len, n_outputs=class_len).to(device)        # LeNet  
-        if net_name == 'Fair':
-                net = ft.FairAutoEncodert(feature_len, class_len ).to(device)       # FairNet  
         if net_name == 'netBio':
                 net = ft.netBio(feature_len, class_len , n_hidden).to(device)       # netBio  
      
@@ -330,8 +323,6 @@ if __name__=='__main__':
             # run AutoEncoder
             if net_name == 'LeNet':
                 net = ft.LeNet_300_100(n_inputs=feature_len, n_outputs=class_len).to(device)        # LeNet  
-            if net_name == 'Fair':
-                net = ft.FairAutoEncodert(feature_len, class_len ).to(device)       # FairNet 
             if net_name == 'netBio':
                 net = ft.netBio(feature_len, class_len , n_hidden).to(device)       # FairNet 
             optimizer = torch.optim.Adam(net.parameters(), lr= LR)
@@ -359,19 +350,7 @@ if __name__=='__main__':
         labels_encoder = data_encoder[:,-1]
         data_encoder_test = data_encoder_test.cpu().detach().numpy()
         data_pred = data_pred.cpu().detach().numpy()
-    
-        data_train[i,0] = metrics.silhouette_score(X_encoder, labels_encoder, metric='euclidean')
-        
 
-        X_encodertest = data_encoder_test[:,:-1]
-        labels_encodertest = data_encoder_test[:,-1]
-        #data_test[i,0]  = metrics.silhouette_score(X_encodertest, labels_encodertest, metric='euclidean')        
-        # ARI score
-        data_train[i,1]  = metrics.adjusted_rand_score(labels_encoder, labelpredict)
-        #data_test[i,1] = metrics.adjusted_rand_score(Y_test, data_encoder_test[:,:-1].max(1)[1].numpy())
-        # AMI Score 
-        data_train[i,2]  = metrics.adjusted_mutual_info_score(labels_encoder, labelpredict)
-        #data_test[i,2] = metrics.adjusted_mutual_info_score(Y_test,data_encoder_test[:,:-1].max(1)[1].numpy() )
 
     
 
@@ -386,7 +365,6 @@ if __name__=='__main__':
     ft.showCellResult(rf, nfold, label_name)
 
     df_accTrain, df_acctest = ft.showClassResult(accuracy_train, accuracy_test, nfold, label_name)
-    df_metricsTrain, df_metricstest = ft.showMetricsResult(data_train, data_test, nfold)
     # print sparsity  
     print('\n best test accuracy:',best_test/float(test_len))
     
@@ -401,34 +379,6 @@ if __name__=='__main__':
     
     # Do Implementation of Metropolis and pass to decoder for reconstruction
     #Metropolis_sampled = ft.DoMetropolis(net, data_encoder, Metropolis_len, class_len, feature_name, outputPath)
-
-    
-
-
-    # get weights and spasity
-    spasity_percentage_entry = {}
-    for keys in spasity_w_entry.keys():
-        spasity_percentage_entry[keys]= spasity_w_entry[keys]*100
-    print('spasity % of all layers entry \n',spasity_percentage_entry)
-    print("-----------------------")
-    weights,spasity_w = fnp.weights_and_sparsity(net.encoder)
-    spasity_percentage = {}
-    for keys in spasity_w.keys():
-        spasity_percentage[keys]= spasity_w[keys]*100
-    print('spasity % of all layers \n',spasity_percentage)
-    print("-----------------------")
-    
-    weights_decoder,spasity_w_decoder = fnp.weights_and_sparsity(net.decoder)
-    mat_in =   net.state_dict()['encoder.0.weight']        
-
-    mat_col_sparsity = ft.sparsity_col(mat_in, device = device)
-    print(" Colonnes sparsity sur la matrice d'entrée: \n",mat_col_sparsity )
-    mat_in_sparsity = ft.sparsity_line(mat_in, device = device)
-    print(" ligne sparsity sur la matrice d'entrée: \n",mat_in_sparsity )
-    layer_list = [x for x in weights.values() ]
-    layer_list_decoder = [x for x in weights_decoder.values() ]
-    titile_list = [x for x in spasity_w.keys()]
-    ft.show_img(layer_list,layer_list_decoder, file_name2)
     
     
     
