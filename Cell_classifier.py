@@ -6,10 +6,11 @@ This is an implementation of : Non-invasive live cell cycle monitoring using a s
 Written by : Philippe Pognonec, Axel Gustovic, Zied Djabari, Thierry Pourcher and Michel Barlaud 
 
 Options : 
-Select train dataset : line 197 
-Select test dataset : line 198 
-Select number of control cells in the training set : line 201
-Select number of cells in the test set : line 202
+Select seed : line 43
+Select train dataset : line 70 
+Select test dataset : line 71 
+Select number of control cells in the training set : line 74
+Select number of cells in the test set : line 75
 
 """
 import os
@@ -23,139 +24,14 @@ import torch
 import numpy as np
 from torch import nn
 
-from sklearn import metrics
-from sklearn.model_selection import train_test_split
+
 
 
 # lib in '../functions/'
 import functions.functions_torch as ft
 import functions.functions_network_pytorch as fnp
-from sklearn.preprocessing import scale as scale
 
 
-
-
-
-def split_db (NC, NT) : 
-    """
-    Read the data and complete the database of cells in mitosis with randomly selected control cells
-    
-    """
-        # ==========Read the dataset===========
-    df_X1 = pd.read_csv('./datas/' + str(file_name),delimiter=",", decimal=".",header=0)
-    np.random.seed(SEED)    
-
-    df_X2 = pd.read_csv('./datas/' + str(file_name2),delimiter=",", decimal=".",header=0)
-        
-    N1 = ['C'+str(i) for i in range(df_X1.shape[0])]
-    df_X1.insert(0,"NAME", N1, True)
-    
-    M1 = ['M'+str(i) for i in range(df_X2.shape[0])]
-    LabelM = [ 1 for i in range(df_X2.shape[0])]
-    df_X2.insert(0,"NAME", M1, True)
-    df_X2.insert(1,"LABEL", LabelM, True)
-    
-
-    # ==========Generate train and test dataset===========
-   
-    Nc=NC # number of samples for training 
-    
-    df_sample , df_TEST  = train_test_split(df_X1 , test_size= 1 - Nc/df_X1.shape[0] , random_state = SEED )
-    df_TEST , no  = train_test_split(df_TEST , test_size= 1 - NT/df_TEST.shape[0] , random_state = SEED )
-    df_TEST = df_TEST.sort_values(by='NAME')
-
-    col_label =3*np.ones(len(df_sample))
-    df_sample.insert(1,'LABEL',col_label)
-    df_TRAIN=pd.concat([df_X2,df_sample],sort=False).reset_index(drop=True)
-    T3 = df_TRAIN.where(df_TRAIN != 2 )
-    df_TRAIN = pd.DataFrame(T3.dropna())
-
-    col_labelt =3*np.ones(len(df_TEST))
-    df_TEST.insert(1,'LABEL',col_labelt)
-    
-    
-    df_TRAIN.T.to_csv('./datas/Train_cell.csv', decimal=".",header=0, sep = ',')
-    df_TEST.T.to_csv('./datas/Test_cell.csv', decimal="." ,header = 0, sep = ',')
-    
-    
-def ReadData(file_name , model, file_name2):
-    """Read different data(csv, npy, mat) files  
-    * csv has two format, one is data of facebook, another is TIRO format.
-    
-    Args:
-        file_name: string - file name, default directory is "datas/FAIR/"
-        
-    Returns:
-        X(m*n): numpy array - m samples and n features, normalized   
-        Y(m*1): numpy array - label of all samples (represented by int number, class 0,class 1，2，...)
-        feature_name(n*1): string -  name of features
-        label_name(m*1): string -  name of each class
-    """
-    global TIRO_FORMAT
-    if (file_name.split('.')[-1] =='csv'):
-        if(model == 'autoencoder'):
-            data_pd = pd.read_csv(str(file_name),delimiter=',', decimal=".", header=0, encoding = 'ISO-8859-1')
-            X = (data_pd.iloc[1:,1:].values.astype(float)).T
-            Y = data_pd.iloc[0,1:].values.astype(float).astype(int)
-            feature_name = data_pd['Name'].values.astype(str)[1:]
-            label_name = np.unique(Y)
-        elif not TIRO_FORMAT:
-            data_pd = pd.read_csv( str(file_name),delimiter=',',header=None,dtype='unicode')
-            
-            index_root = data_pd[data_pd.iloc[:,-1]=='root'].index.tolist()
-            data = data_pd.drop(index_root).values
-            X = data[1:,:-1].astype(float)
-            Y = data[1:,-1]
-            feature_name = data[0,:-1]
-            label_name = np.unique(data[1:,-1])
-            # Do standardization
-            X = X-np.mean(X,axis=0)
-            #X = scale(X,axis=0)    
-        
-        elif TIRO_FORMAT:
-            data_pd = pd.read_csv( './datas/Train_cell.csv',delimiter=',', decimal=".", header=0, encoding = 'ISO-8859-1')
-            Name = data_pd.columns
-            data_pd.drop([1 , 20, 17, 18, 19], 0, inplace=True)
-            X = (data_pd.iloc[1:,1:].values.astype(float)).T
-            #X = np.vstack((Name[1:] , X))
-            #X = X.T
-            Y = data_pd.iloc[0,1:].values.astype(float).astype(int)
-            feature_name = data_pd['NAME'].values.astype(str)[1:]
-            label_name = np.unique(Y)
-            
-            data_pd_test = pd.read_csv( './datas/Test_cell.csv',delimiter=',', decimal=".", header=0, encoding = 'ISO-8859-1')
-            
-            Name_t = data_pd_test.columns
-            data_pd_test.drop([1 , 20, 17, 18, 19], 0, inplace=True)
-            X_test = (data_pd_test.iloc[1:,1:].values.astype(float)).T
-            
-            Y_test = data_pd_test.iloc[0,1:].values.astype(float).astype(np.int64)
-            # Do standardization
-            X  = np.log(abs(X)+1) 
-            Xr = X        
-            Y_c = np.where(Y == 3)
-            
-            X_c = Xr[Y_c]               # Transformation            
-            
-            X = X-np.mean(X_c,axis=0) 
-            #X = X-np.mean(X,axis=0)                    
-                       
-            X_test = np.log(abs(X_test) +1)
-            X_test = X_test - (np.mean(X_c, axis=0)) 
-            #X_test = X_test - (np.mean(X_test, axis=0)) 
-           
-                
-            X = np.vstack((Name[1:] , X.T)).T
-            X_test = np.vstack((Name_t[1:] , X_test.T)).T
-             
-        for index,label in enumerate(label_name):   # convert string labels to numero (0,1,2....)
-            Y = np.where(Y==label,index,Y)
-        Y = Y.astype(np.int64) 
-        for index,label in enumerate(label_name):   # convert string labels to numero (0,1,2....)
-            Y_test = np.where(Y_test==label,index,Y_test)
-        Y_test = Y_test.astype(np.int64)
-        
-    return X,Y,feature_name,label_name , X_test, Y_test
 
 
 
@@ -180,10 +56,7 @@ if __name__=='__main__':
     LR = 0.0005      
     BATCH_SIZE=8
     LOSS_LAMBDA = 0.0005         # Total loss =λ * loss_autoencoder +  loss_classification
-    INTERPELLATION_LAMBDA = 0.2      # z = (1-λ)*x + λ*y.
-    Metropolis_len = 100    # Number of points for Metropolis per class
-    
-    SPLIT_RATE = 0.25
+
     # Loss functions for reconstruction
     criterion_reconstruction = nn.SmoothL1Loss(  reduction='sum'  ) # SmoothL1Loss
     
@@ -205,7 +78,7 @@ if __name__=='__main__':
     # Choose Net 
 #    net_name = 'LeNet'
     net_name = 'netBio'
-    n_hidden = 64  # nombre de neurone sur la couche du netBio
+    n_hidden = 64  # nombre de neurones sur la couche du netBio
 
     # Save Results or not
     SAVE_FILE = True
@@ -240,10 +113,7 @@ if __name__=='__main__':
         
     #  Parameters for gradient masqué  
     ETA = 1000         # for Proximal_PGL1 or Proximal_PGL11
-    ETA_STAR = 100.0   # for Proximal_PGNuclear or Proximal_PGL1_Nuclear
-    AXIS = 0          #  for PGL21
-  
-    # Top genes params 
+
 
  #   DoTopGenes = True
     DoTopGenes = False
@@ -253,17 +123,17 @@ if __name__=='__main__':
     if Nc + Nt > pd.read_csv('./datas/' + str(file_name),delimiter=",", decimal=".",header=0).shape[0] :
         raise IndexError("Manque de données de control ")
     # Load data    
-    split_db(Nc, Nt)
-    X,Y,feature_name,label_name , X_test, Y_test = ReadData(file_name ,'', file_name2) # Load files datas
+    ft.split_db(Nc, Nt, Seed, file_name, file_name2)
+    X,Y,feature_name,label_name , X_test, Y_test = ft.ReadData(file_name ,'', file_name2, TIRO_FORMAT) # Load files datas
 
     feature_len = len(feature_name)
     class_len = len(label_name)
     print('Number of feature: {}, Number of class: {}'.format(feature_len,class_len ))
                     
-    train_dl, vide, train_len, vide  = ft.SpiltData(X,Y,BATCH_SIZE,SPLIT_RATE)
+    train_dl, vide, train_len, vide  = ft.SpiltData(X,Y,BATCH_SIZE)
     
     
-    test_dl, vide, test_len, vide  = ft.SpiltData(X_test,Y_test,1,SPLIT_RATE)
+    test_dl, vide, test_len, vide  = ft.SpiltData(X_test,Y_test,1)
     X_name = X 
     X = X[:,1:]
     X_name_test = X_test 
@@ -299,7 +169,7 @@ if __name__=='__main__':
         optimizer = torch.optim.Adam(net.parameters(), lr= LR )
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 150, gamma = 0.1)
         data_encoder, data_decoded, epoch_loss, best_test, net = ft.RunAutoEncoder(net, criterion_reconstruction, optimizer, lr_scheduler, train_dl, train_len, test_dl, test_len, N_EPOCHS, \
-                    outputPath, SAVE_FILE,  DO_PROJ_middle, run_model, criterion_classification, LOSS_LAMBDA, feature_name, TYPE_PROJ, ETA, ETA_STAR, AXIS )  
+                    outputPath, SAVE_FILE,  DO_PROJ_middle, run_model, criterion_classification, LOSS_LAMBDA, feature_name, TYPE_PROJ, ETA )  
         labelpredict = data_encoder[:,:-1].max(1)[1].cpu().numpy()
         # Do masked gradient
         
@@ -334,7 +204,7 @@ if __name__=='__main__':
                     
             run_model = 'MaskGrad'
             data_encoder, data_decoded, epoch_loss, best_test, net = ft.RunAutoEncoder(net, criterion_reconstruction, optimizer, lr_scheduler, train_dl, train_len, test_dl, test_len, N_EPOCHS_MASKGRAD, \
-                    outputPath,  SAVE_FILE,  zero_list, run_model, criterion_classification, LOSS_LAMBDA, feature_name, TYPE_PROJ, ETA, ETA_STAR, AXIS )    
+                    outputPath,  SAVE_FILE,  zero_list, run_model, criterion_classification, LOSS_LAMBDA, feature_name, TYPE_PROJ, ETA )    
             print("\n--------Finised masked gradient-----")
             print("-----------------------")
         #np.save(file_name.split('.')[0]+'_Loss_'+str(run_model), epoch_loss)
@@ -369,7 +239,7 @@ if __name__=='__main__':
     print('\n best test accuracy:',best_test/float(test_len))
     
     # Reconstruction by using the centers in laten space and datas after interpellation
-    center_mean,  center_distance = ft.Reconstruction(INTERPELLATION_LAMBDA, data_encoder, net, class_len )
+    center_mean,  center_distance = ft.Reconstruction(0.2, data_encoder, net, class_len )
               
     # Do pca,tSNE for encoder data
     if Do_pca and Do_tSNE:

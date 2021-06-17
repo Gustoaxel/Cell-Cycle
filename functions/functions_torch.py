@@ -931,7 +931,7 @@ class netBio(nn.Module) :
         return encode , decode
     
 def RunAutoEncoder(net, criterion, optimizer, lr_scheduler, train_dl, train_len, test_dl, test_len, N_EPOCHS, outputPath, SAVE_FILE,\
-                   DO_PROJ_middle, run_model, criterion_classification,  LOSS_LAMBDA, feature_name, TYPE_PROJ, ETA, ETA_STAR, AXIS ):
+                   DO_PROJ_middle, run_model, criterion_classification,  LOSS_LAMBDA, feature_name, TYPE_PROJ, ETA, ETA_STAR = 0, AXIS= 0 ):
     """ Main loop for autoencoder, run autoencoder and return the encode and decode matrix
     
     Args:
@@ -1082,10 +1082,10 @@ def RunAutoEncoder(net, criterion, optimizer, lr_scheduler, train_dl, train_len,
         print("-----------------------")
     #Plot  
     if str(run_model)!= 'ProjectionLastEpoch':
-        plt.figure()
-        plt.plot( epoch_acc )
-        plt.plot( epoch_val_acc )
-        plt.title('Total accuracy classification')
+        #plt.figure()
+        #plt.plot( epoch_acc )
+        #plt.plot( epoch_val_acc )
+        #plt.title('Total accuracy classification')
         print('{} epochs trained for  {}s , {} s/epoch'.format(N_EPOCHS, sum(train_time), np.mean(train_time)))
     return  data_encoder, data_decoded, epoch_loss , best_test, net
 
@@ -1377,7 +1377,7 @@ def ShowPcaTsne(X, Y, data_encoder, center_distance, class_len  ):
     color_center_distance = [color[i] for i in labels ]
     
     # Plot
-    title2 = 'NP_Encoder_ results' if class_len==2 else 'NP_Encoder_'+'_PCA'
+    title2 = 'Latent Space'
 
     plt.figure()
     plt.title(title2)
@@ -1562,7 +1562,7 @@ def DoMetropolis(net, data_encoder, Metropolis_len, class_len, feature_name, out
          data_sampled: numpy - sampled data by Metropolis
          Metropolis_encoder
     """
-    
+    device = 'cpu'
     data_sampled = None
     y = np.unique(data_encoder[:,-1])
     # Do Metropolis Sampling in class order 
@@ -1645,6 +1645,128 @@ def SpiltData(X,Y,BATCH_SIZE=32, split_rate = 0.):
     
     return train_dl,test_dl,X.shape[0],0 
 
+from sklearn.model_selection import train_test_split
+
+def split_db(NC, NT, SEED, file_name, file_name2) : 
+    """
+    Read the data and complete the database of cells in mitosis with randomly selected control cells
+    
+    """
+        # ==========Read the dataset===========
+    df_X1 = pd.read_csv('./datas/' + str(file_name),delimiter=",", decimal=".",header=0)
+    np.random.seed(SEED)    
+
+    df_X2 = pd.read_csv('./datas/' + str(file_name2),delimiter=",", decimal=".",header=0)
+        
+    N1 = ['C'+str(i) for i in range(df_X1.shape[0])]
+    df_X1.insert(0,"NAME", N1, True)
+    
+    M1 = ['M'+str(i) for i in range(df_X2.shape[0])]
+    LabelM = [ 1 for i in range(df_X2.shape[0])]
+    df_X2.insert(0,"NAME", M1, True)
+    df_X2.insert(1,"LABEL", LabelM, True)
+    
+
+    # ==========Generate train and test dataset===========
+   
+    Nc=NC # number of samples for training 
+    
+    df_sample , df_TEST  = train_test_split(df_X1 , test_size= 1 - Nc/df_X1.shape[0] , random_state = SEED )
+    df_TEST , no  = train_test_split(df_TEST , test_size= 1 - NT/df_TEST.shape[0] , random_state = SEED )
+    df_TEST = df_TEST.sort_values(by='NAME')
+
+    col_label =3*np.ones(len(df_sample))
+    df_sample.insert(1,'LABEL',col_label)
+    df_TRAIN=pd.concat([df_X2,df_sample],sort=False).reset_index(drop=True)
+    T3 = df_TRAIN.where(df_TRAIN != 2 )
+    df_TRAIN = pd.DataFrame(T3.dropna())
+
+    col_labelt =3*np.ones(len(df_TEST))
+    df_TEST.insert(1,'LABEL',col_labelt)
+    
+    
+    df_TRAIN.T.to_csv('./datas/Train_cell.csv', decimal=".",header=0, sep = ',')
+    df_TEST.T.to_csv('./datas/Test_cell.csv', decimal="." ,header = 0, sep = ',')
+
+
+def ReadData(file_name , model, file_name2, TIRO_FORMAT):
+    """Read different data(csv, npy, mat) files  
+    * csv has two format, one is data of facebook, another is TIRO format.
+    
+    Args:
+        file_name: string - file name, default directory is "datas/FAIR/"
+        
+    Returns:
+        X(m*n): numpy array - m samples and n features, normalized   
+        Y(m*1): numpy array - label of all samples (represented by int number, class 0,class 1，2，...)
+        feature_name(n*1): string -  name of features
+        label_name(m*1): string -  name of each class
+    """
+
+    if (file_name.split('.')[-1] =='csv'):
+        if(model == 'autoencoder'):
+            data_pd = pd.read_csv(str(file_name),delimiter=',', decimal=".", header=0, encoding = 'ISO-8859-1')
+            X = (data_pd.iloc[1:,1:].values.astype(float)).T
+            Y = data_pd.iloc[0,1:].values.astype(float).astype(int)
+            feature_name = data_pd['Name'].values.astype(str)[1:]
+            label_name = np.unique(Y)
+        elif not TIRO_FORMAT:
+            data_pd = pd.read_csv( str(file_name),delimiter=',',header=None,dtype='unicode')
+            
+            index_root = data_pd[data_pd.iloc[:,-1]=='root'].index.tolist()
+            data = data_pd.drop(index_root).values
+            X = data[1:,:-1].astype(float)
+            Y = data[1:,-1]
+            feature_name = data[0,:-1]
+            label_name = np.unique(data[1:,-1])
+            # Do standardization
+            X = X-np.mean(X,axis=0)
+            #X = scale(X,axis=0)    
+        
+        elif TIRO_FORMAT:
+            data_pd = pd.read_csv( './datas/Train_cell.csv',delimiter=',', decimal=".", header=0, encoding = 'ISO-8859-1')
+            Name = data_pd.columns
+            data_pd.drop([1 , 20, 17, 18, 19], 0, inplace=True)
+            X = (data_pd.iloc[1:,1:].values.astype(float)).T
+            #X = np.vstack((Name[1:] , X))
+            #X = X.T
+            Y = data_pd.iloc[0,1:].values.astype(float).astype(int)
+            feature_name = data_pd['NAME'].values.astype(str)[1:]
+            label_name = np.unique(Y)
+            
+            data_pd_test = pd.read_csv( './datas/Test_cell.csv',delimiter=',', decimal=".", header=0, encoding = 'ISO-8859-1')
+            
+            Name_t = data_pd_test.columns
+            data_pd_test.drop([1 , 20, 17, 18, 19], 0, inplace=True)
+            X_test = (data_pd_test.iloc[1:,1:].values.astype(float)).T
+            
+            Y_test = data_pd_test.iloc[0,1:].values.astype(float).astype(np.int64)
+            # Do standardization
+            X  = np.log(abs(X)+1) 
+            Xr = X        
+            Y_c = np.where(Y == 3)
+            
+            X_c = Xr[Y_c]               # Transformation            
+            
+            X = X-np.mean(X_c,axis=0) 
+            #X = X-np.mean(X,axis=0)                    
+                       
+            X_test = np.log(abs(X_test) +1)
+            X_test = X_test - (np.mean(X_c, axis=0)) 
+            #X_test = X_test - (np.mean(X_test, axis=0)) 
+           
+                
+            X = np.vstack((Name[1:] , X.T)).T
+            X_test = np.vstack((Name_t[1:] , X_test.T)).T
+             
+        for index,label in enumerate(label_name):   # convert string labels to numero (0,1,2....)
+            Y = np.where(Y==label,index,Y)
+        Y = Y.astype(np.int64) 
+        for index,label in enumerate(label_name):   # convert string labels to numero (0,1,2....)
+            Y_test = np.where(Y_test==label,index,Y_test)
+        Y_test = Y_test.astype(np.int64)
+        
+    return X,Y,feature_name,label_name , X_test, Y_test
 
 
 if __name__ == "__main__":
