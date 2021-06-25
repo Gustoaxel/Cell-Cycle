@@ -7,10 +7,10 @@ Written by : Philippe Pognonec, Axel Gustovic, Zied Djabari, Thierry Pourcher an
 
 Options : 
 Select seed : line 43
-Select train dataset : line 70 
-Select test dataset : line 71 
-Select number of control cells in the training set : line 74
-Select number of cells in the test set : line 75
+Select train dataset : line 77 
+Select test dataset : line 78 
+Select number of control cells in the training set : line 45
+Select number of cells in the test set : line 46
 
 """
 import os
@@ -41,6 +41,13 @@ if __name__=='__main__':
 #------------ Parameters ---------
     # Set seed
     Seed = 5
+    ETA = 1000 
+    Nc = 1000
+    Nt = 5000
+    
+    
+    
+    
     SEED = Seed
     np.random.seed(SEED)
     torch.manual_seed(SEED)
@@ -69,10 +76,7 @@ if __name__=='__main__':
 
     file_name = '20210203_L1_All.csv'
     file_name2 = '20210203_M1_M2_M2_3_Mitosis.csv'
-    
-    
-    Nc = 1000
-    Nt = 5000
+
     
     
     # Choose Net 
@@ -111,8 +115,7 @@ if __name__=='__main__':
         TYPE_PROJ = ft.proj_l11ball        #original projection l11 (les colonnes a zero)
         TYPE_PROJ_NAME = TYPE_PROJ.__name__
         
-    #  Parameters for gradient masqué  
-    ETA = 1000         # for Proximal_PGL1 or Proximal_PGL11
+
 
 
  #   DoTopGenes = True
