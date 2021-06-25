@@ -1,15 +1,15 @@
-# Clinical autoencoder
+# Cell Cycle
 ***
 
-This is an implementation of : Efficient classification using the latent spaceof a Non-Parametric Supervised Autoencoderfor metabolomics datasets of clinical studies. In this repository, you will find the code to perform the clinical study described in the paper. For the statistical and comparison part, you can find it here
+This is an implementation of : Non invasive live cell cycle monitoring using a supervised deep neural autoencoder onquantitative phase images
   
 When using this code , please cite Barlaud, M., Guyard, F.: Learning sparse deep neural networks 
 using efficient structured projections on convex constraints for green ai. ICPR 2020 Milan Italy (2020)
 
 and 
 
-Axel Gustovic, Celine Ocelli, Thierry Pourcher and Michel Barlaud : Efficient diagnostic using the 
-latent space ofa Non-Parametric Supervised Autoencoderfor metabolomics datasets
+Philippe Pognonec, Axel Gustovic, Zied Djabari, Thierry Pourcher and Michel Barlaud : Non invasive live cell cycle monitoring using a
+supervised deep neural autoencoder on quantitative phase images
 
 
 ## Table of Contents
@@ -29,6 +29,9 @@ $ conda install -c anaconda pip
 $ cd path/to/project
 $ pip install -r requirements.txt (Warning, before launching this command you must go to the directory where the requirements.txt is located)
 ```
+
+To install captum make sure you have a c++ compiler
+
 ## How to use : 
 
 Everything is ready, now you have to open the code in spyder (top left button). 
@@ -39,7 +42,7 @@ Here is a list of modifiable parameters with our values :
 | Parameters | line in code | recommended value |
 |:--------------|:-------------:|--------------:|
 | ETA | 119 | 600 |
-| Seed | 55 | 5 |
-| Database | 87 | Lung |
-| Projection | 114 | l11 |
-| Scaling | 135 | True |
+| Seed | 43 | 5 |
+| Database | 70 | - |
+| Number of Control cells in training | 74 | 1000 |
+| Number of Control cells in the test  | 75 | 5000 |
