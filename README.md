@@ -26,11 +26,12 @@ You can now download the code in zip format and unzip it on your computer.
 Then, to execute our script, we will need several dependencies. To install them you will have to run this command in the spyder console (at the bottom right).
 ```
 $ conda install -c anaconda pip
-$ cd path/to/project
-$ pip install -r requirements.txt (Warning, before launching this command you must go to the directory where the requirements.txt is located)
+$ pip install -r requirements.txt
 ```
 
-To install captum make sure you have a c++ compiler
+(Warning, before launching this command you must go to the directory where the requirements.txt is located)
+
+To install pytorch make sure you have a c++ compiler. If this is not the case, please follow the instructions in this link: https://docs.microsoft.com/en-us/cpp/build/vscpp-step-0-installation?view=msvc-160 for windows or install Xcode app if you use mac os
 
 ## How to use : 
 
@@ -41,8 +42,8 @@ Here is a list of modifiable parameters with our values :
 
 | Parameters | line in code | recommended value |
 |:--------------|:-------------:|--------------:|
-| ETA | 119 | 600 |
+| ETA | 44 | 1000 |
 | Seed | 43 | 5 |
-| Database | 70 | - |
-| Number of Control cells in training | 74 | 1000 |
-| Number of Control cells in the test  | 75 | 5000 |
+| Database | 77 | - |
+| Number of Control cells in training | 45 | 1000 |
+| Number of Control cells in the test  | 46 | 5000 |
